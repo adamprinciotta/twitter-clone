@@ -1,8 +1,9 @@
 import { useSession } from 'next-auth/react'
 import { Button } from './Button'
 import { ProfileImage } from './ProfileImage'
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { FormEvent, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { text } from 'stream/consumers'
+import { api } from '~/utils/api'
 
 function updateTextAreaSize(textArea?:HTMLTextAreaElement){
     if(textArea == null) return
@@ -15,50 +16,56 @@ export function NewTweetForm() {
     //The commented out lines will not let you see the create tweet form unless you are logged in
         //need to set up laptop to be able to log in so I can test here
     
-        // const session = useSession()
+    const session = useSession()
 
-    // if (session.status !== 'authenticated') return null
+    if (session.status !== 'authenticated') return null
 
     return <Form />
 }
 
 
 function Form(){
+    const [inputValue, setInputValue] = useState('')
 
-    
-const [inputValue, setInputValue] = useState('')
+    const session = useSession()
+        
+    if (session.status !== 'authenticated') return null
 
-// const session = useSession()
-    
-// if (session.status !== 'authenticated') return null
+    const textAreaRef = useRef<HTMLTextAreaElement>()
 
-const textAreaRef = useRef<HTMLTextAreaElement>()
+    const inputRef = useCallback((textArea: HTMLTextAreaElement) => {
+        updateTextAreaSize(textArea)
+        textAreaRef.current = textArea
+    }, [])
 
-const inputRef = useCallback((textArea: HTMLTextAreaElement) => {
-    updateTextAreaSize(textArea)
-    textAreaRef.current = textArea
-}, [])
+    useLayoutEffect(() => {
+        updateTextAreaSize(textAreaRef.current)
+    }, [inputValue])
 
-useLayoutEffect(() => {
-    updateTextAreaSize(textAreaRef.current)
-}, [inputValue])
+    const createTweet = api.tweet.create.useMutation({ onSuccess: newTweet => {
+        setInputValue('')
+    }}) 
 
+    function handleSubmit(e: FormEvent) {
+        e.preventDefault()
+        createTweet.mutate({content: inputValue})
+    }
 
-return <form className="flex flex-col gap-2 border-b px-4 py-2">
-    <div className="flex gap-4">
-        {/* <ProfileImage src={session.data.user.image}/> */}
-        <textarea 
-        ref={inputRef}
-        style={{height:0}}
-        className="flex-grow resize-none overflow-hidden p-4 text-lg outline-none"
-        placeholder="What's happening?"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        />
-    </div>
-    <Button className='self-end'>
-        Send Tweet
-    </Button>
-</form>
+    return <form onSubmit = {handleSubmit} className="flex flex-col gap-2 border-b px-4 py-2">
+        <div className="flex gap-4">
+            <ProfileImage src={session.data.user.image}/>
+            <textarea 
+            ref={inputRef}
+            style={{height:0}}
+            className="flex-grow resize-none overflow-hidden p-4 text-lg outline-none"
+            placeholder="What's happening?"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            />
+        </div>
+        <Button className='self-end'>
+            Send Tweet
+        </Button>
+    </form>
 }
 
